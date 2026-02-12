@@ -1,0 +1,72 @@
+[
+    {
+        "title": "Solar-Powered Water Purification System",
+        "description": "A portable water purification device utilizing concentrated solar energy to eliminate microorganisms and chemical contaminants from water sources. The system employs a parabolic solar collector combined with UV sterilization to achieve high levels of pathogen removal suitable for rural deployment.",
+        "ip_type": "Patent",
+        "organization": "Green Energy Research Lab",
+        "inventor_name": "Dr. Ananya Desai"
+    },
+    {
+        "title": "AI-Driven Crop Disease Detection Using Drone Imagery",
+        "description": "An automated system for detecting plant diseases in agricultural fields using deep learning analysis of multispectral drone imagery. The method uses convolutional neural networks trained on labeled datasets to identify early-stage infections and generate prescription maps for targeted pesticide application.",
+        "ip_type": "Patent",
+        "organization": "AgriTech Innovation Centre",
+        "inventor_name": "Prof. Rajesh Kulkarni"
+    },
+    {
+        "title": "Blockchain-Based Academic Credential Verification",
+        "description": "A decentralized platform for issuing, storing, and verifying academic credentials using blockchain technology. Institutions can issue tamper-proof digital certificates that can be independently verified by employers without reliance on a central authority.",
+        "ip_type": "Patent",
+        "organization": "Digital Trust Institute",
+        "inventor_name": "Dr. Sneha Patil"
+    },
+    {
+        "title": "Biodegradable Polymer for Food Packaging",
+        "description": "A novel biodegradable polymer composite derived from agricultural waste materials including rice husk and sugarcane bagasse. The material exhibits comparable mechanical strength to conventional plastic packaging while fully degrading within 90 days under composting conditions.",
+        "ip_type": "Patent",
+        "organization": "Materials Science Department",
+        "inventor_name": "Dr. Vikram Joshi"
+    },
+    {
+        "title": "Low-Cost Prosthetic Hand with Myoelectric Control",
+        "description": "An affordable upper-limb prosthetic device controlled by surface electromyography signals from the residual limb. The design uses 3D-printed components and an embedded microcontroller to achieve individual finger actuation at a fraction of the cost of commercial alternatives.",
+        "ip_type": "Patent",
+        "organization": "Biomedical Engineering Lab",
+        "inventor_name": "Dr. Meera Nair"
+    },
+    {
+        "title": "Smart Traffic Signal Optimization Using IoT Sensors",
+        "description": "An intelligent traffic management system that dynamically adjusts signal timing based on real-time vehicle density data collected from IoT-enabled inductive loop sensors and computer vision cameras at intersections. The system reduces average commute times by adapting to peak-hour traffic patterns.",
+        "ip_type": "Patent",
+        "organization": "Urban Systems Research Group",
+        "inventor_name": "Prof. Arun Mehta"
+    },
+    {
+        "title": "Electrochemical Sensor for Heavy Metal Detection in Water",
+        "description": "A portable electrochemical biosensor capable of detecting trace concentrations of heavy metals such as lead, arsenic, and cadmium in drinking water. The sensor uses a modified graphene oxide electrode to achieve parts-per-billion sensitivity suitable for field deployment.",
+        "ip_type": "Patent",
+        "organization": "Environmental Sciences Division",
+        "inventor_name": "Dr. Priya Sharma"
+    },
+    {
+        "title": "Machine Learning Model for Earthquake Early Warning",
+        "description": "A real-time earthquake detection framework that applies machine learning to seismograph data streams for rapid P-wave identification and magnitude estimation. The system provides seconds to minutes of advance warning to population centers downstream of the epicenter.",
+        "ip_type": "Patent",
+        "organization": "Seismology and Disaster Management Centre",
+        "inventor_name": "Dr. Kabir Sinha"
+    },
+    {
+        "title": "Nano-Enhanced Concrete for Earthquake-Resistant Structures",
+        "description": "A high-performance concrete mix incorporating carbon nanotube additives to improve tensile strength and ductility. The material is designed for seismically active regions and demonstrates superior crack resistance and energy absorption capacity under cyclic loading.",
+        "ip_type": "Industrial Design",
+        "organization": "Structural Engineering Lab",
+        "inventor_name": "Prof. Deepak Rao"
+    },
+    {
+        "title": "Wearable Device for Non-Invasive Blood Glucose Monitoring",
+        "description": "A wrist-worn biosensor device that estimates blood glucose concentration using near-infrared spectroscopy without the need for a finger-prick blood sample. The device transmits readings to a smartphone app and provides trend analysis and hypoglycemia alerts.",
+        "ip_type": "Patent",
+        "organization": "Biomedical Engineering Lab",
+        "inventor_name": "Dr. Meera Nair"
+    }
+]

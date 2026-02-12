@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────
+# IPR Audit & Patentability Scoring Tool
+# Python dependencies
+# ─────────────────────────────────────────────────
+
+# Backend
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# NLP / Similarity
+scikit-learn>=1.4.0
+
+# PDF Extraction
+pdfplumber>=0.10.0
+
+# Frontend
+streamlit>=1.31.0
+requests>=2.31.0
