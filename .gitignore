@@ -12,3 +12,10 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# .gemini specific tool log ignores
+docs/maestro/
+.gemini/
+tmp/
+plans/
+*orchestration*.md
