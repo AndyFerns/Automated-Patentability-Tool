@@ -10,6 +10,7 @@ Endpoints
     GET   /organization/{org_name}/score  — Aggregated IPR score card.
     GET   /organization/{org_name}/details — Full disclosure list + score.
     GET   /organizations                  — List all known organizations.
+    GET   /audit/{org_name}               — Audit & compliance report.
 
 Run with:
     uvicorn app.main:app --reload
@@ -32,11 +33,13 @@ from app.database import (
 )
 from app.extractor import process_document
 from app.models import (
+    AuditReport,
     DisclosureCreate,
     DisclosureResponse,
     DocumentExtraction,
     OrganizationScore,
 )
+from app.audit import generate_audit_report
 from app.patent_similarity import find_similar_patents
 from app.score_engine import calculate_ipr_score, get_patent_risk_flags
 
@@ -233,3 +236,32 @@ def get_org_details(org_name: str):
 def list_organizations():
     """Return a list of all organizations that have submitted disclosures."""
     return get_all_organizations()
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  GET /audit/{org_name} — Audit & Compliance Report
+# ═══════════════════════════════════════════════════════════════════
+
+@app.get("/audit/{org_name}", response_model=AuditReport)
+def get_audit_report(org_name: str):
+    """
+    Generate and return a structured audit & compliance report for the
+    given organization.
+
+    The report provides transparency into the search methodology,
+    filtering rigor, system configuration, and data distribution.
+    It does NOT perform any ML or similarity computation — it only
+    summarises what the system has already done.
+
+    Returns 404 if no disclosures exist for the organization.
+    """
+    disclosures = get_disclosures_by_org(org_name)
+
+    if not disclosures:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No disclosures found for organization '{org_name}'.",
+        )
+
+    report = generate_audit_report(disclosures)
+    return AuditReport(**report)

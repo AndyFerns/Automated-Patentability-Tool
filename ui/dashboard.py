@@ -4,18 +4,21 @@ dashboard.py
 Streamlit-based frontend for the IPR Audit & Patentability Scoring Tool.
 
 Connects to the FastAPI backend (default: http://localhost:8000) and
-provides four interactive tabs:
+provides five interactive tabs:
 
     1. 📝 Add Disclosure   — Submit IP disclosures via a form.
     2. 📄 Upload Document   — Upload a PDF to extract inventor info.
     3. 🏢 Organization Score — View aggregated IPR score & breakdown.
     4. ⚠️ Patent Risk        — Inspect patent similarity results.
+    5. 📋 Audit             — Generate audit & compliance reports.
 
 Run with:
     streamlit run ui/dashboard.py
 """
 
 import os
+
+import pandas as pd
 import requests
 import streamlit as st
 
@@ -54,11 +57,12 @@ st.caption("Lightweight institutional IP auditing dashboard")
 # Tabs
 # ────────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📝 Add Disclosure",
     "📄 Upload Document",
     "🏢 Organization Score",
     "⚠️ Patent Risk",
+    "📋 Audit",
 ])
 
 
@@ -303,6 +307,213 @@ with tab4:
                 st.error(f"❌ API Error: {resp.json().get('detail', resp.text)}")
         except requests.ConnectionError:
             st.error("🔌 Cannot connect to backend.")
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Tab 5 — Audit & Compliance Report
+# ═══════════════════════════════════════════════════════════════════
+
+with tab5:
+    st.header("Audit & Compliance Report")
+    st.markdown(
+        "Generate a structured audit report for an organization's IP "
+        "portfolio. Provides transparency into search methodology, "
+        "filtering rigor, and system configuration."
+    )
+
+    # ── Fetch the list of known organizations ──────────────────────
+    audit_orgs = []
+    try:
+        resp = requests.get(f"{API_BASE}/organizations", timeout=10)
+        if resp.status_code == 200:
+            audit_orgs = resp.json()
+    except requests.ConnectionError:
+        pass
+
+    audit_org_input = st.text_input(
+        "Organization Name",
+        placeholder="Type an organization name",
+        key="audit_org_input",
+    )
+    if audit_orgs:
+        st.caption(f"Known organizations: {', '.join(audit_orgs)}")
+
+    if audit_org_input and st.button("Generate Audit Report", type="primary"):
+        try:
+            resp = requests.get(
+                f"{API_BASE}/audit/{audit_org_input}", timeout=15
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+
+                # ── Search Scope ──────────────────────────────────
+                st.subheader("🔍 Search Scope")
+                scope = data["search_scope"]
+                col_a, col_b, col_c = st.columns(3)
+                col_a.metric(
+                    "Databases Searched",
+                    len(scope["databases"]),
+                )
+                col_b.metric(
+                    "Classifications",
+                    len(scope["classification"]),
+                )
+                col_c.metric(
+                    "Disclosures Analysed",
+                    scope["total_disclosures_analysed"],
+                )
+                st.write("**Databases:** " + ", ".join(scope["databases"]))
+                st.write(
+                    "**Patent Classifications:** "
+                    + ", ".join(scope["classification"])
+                )
+
+                st.divider()
+
+                # ── Search Logic ──────────────────────────────────
+                st.subheader("🧠 Search Logic Validation")
+                logic = data["search_logic"]
+                col_d, col_e, col_f = st.columns(3)
+                col_d.metric(
+                    "Boolean Query Valid",
+                    "✅ Yes" if logic["boolean_valid"] else "❌ No",
+                )
+                col_e.metric(
+                    "Keyword Expansion",
+                    "✅ Enabled" if logic["keyword_expansion"] else "❌ Disabled",
+                )
+                col_f.metric("Filters Applied", logic["filters"])
+
+                st.divider()
+
+                # ── Metrics ───────────────────────────────────────
+                st.subheader("📊 Quantitative Metrics")
+                metrics = data["metrics"]
+                col_g, col_h, col_i = st.columns(3)
+                col_g.metric("Total Search Hits", f"{metrics['total_hits']:,}")
+                col_h.metric("Risk Threshold", metrics["threshold"])
+                col_i.metric("Final Documents", metrics["final_docs"])
+
+                col_j, col_k = st.columns(2)
+                col_j.metric("Total Disclosures", metrics["total_disclosures"])
+                col_k.metric("Patent Disclosures", metrics["patent_disclosures"])
+
+                st.divider()
+
+                # ── System Info ───────────────────────────────────
+                st.subheader("⚙️ System Configuration")
+                system = data["system"]
+                col_l, col_m = st.columns(2)
+                col_l.metric("Algorithm", system["algorithm"])
+                col_m.metric("Feature Limit", system["feature_limit"])
+
+                thresholds = system["risk_thresholds"]
+                st.table(
+                    pd.DataFrame(
+                        [
+                            {"Risk Level": "Low", "Threshold": thresholds["low"]},
+                            {"Risk Level": "Medium", "Threshold": thresholds["medium"]},
+                            {"Risk Level": "High", "Threshold": thresholds["high"]},
+                        ]
+                    )
+                )
+
+                st.divider()
+
+                # ══════════════════════════════════════════════════
+                #  Visual Graphs
+                # ══════════════════════════════════════════════════
+
+                st.subheader("📈 Visual Insights")
+
+                # ── Graph 1: Result Funnel ─────────────────────────
+                st.markdown("#### Result Funnel")
+                st.caption(
+                    "Shows how the system narrows down from total "
+                    "search hits to the final analysed documents."
+                )
+                funnel_df = pd.DataFrame(
+                    {
+                        "Stage": [
+                            "Total Hits",
+                            "Total Disclosures",
+                            "Patent Disclosures",
+                            "Final Docs (Scored)",
+                        ],
+                        "Count": [
+                            metrics["total_hits"],
+                            metrics["total_disclosures"],
+                            metrics["patent_disclosures"],
+                            metrics["final_docs"],
+                        ],
+                    }
+                )
+                st.bar_chart(funnel_df, x="Stage", y="Count")
+
+                # ── Graph 2: Threshold vs Similarity Distribution ─
+                similarity_scores = data.get("similarity_scores", [])
+                if similarity_scores:
+                    st.markdown("#### Similarity Score Distribution vs Threshold")
+                    st.caption(
+                        "Each bar represents the similarity score of a "
+                        "patent disclosure. The red dashed line marks "
+                        "the risk threshold (40%)."
+                    )
+
+                    # Build a DataFrame with index labels.
+                    sim_labels = [
+                        f"Patent {i + 1}" for i in range(len(similarity_scores))
+                    ]
+                    sim_df = pd.DataFrame(
+                        {
+                            "Patent": sim_labels,
+                            "Similarity %": similarity_scores,
+                            "Threshold (40%)": [40.0] * len(similarity_scores),
+                        }
+                    )
+                    st.bar_chart(sim_df, x="Patent", y=["Similarity %", "Threshold (40%)"])
+                else:
+                    st.info(
+                        "No patent similarity scores available. "
+                        "Submit patent-type disclosures to see this chart."
+                    )
+
+                # ── Graph 3: IP Type Distribution ──────────────────
+                ip_dist = data.get("ip_distribution", [])
+                if ip_dist:
+                    st.markdown("#### IP Type Distribution")
+                    st.caption(
+                        "Breakdown of disclosures by intellectual "
+                        "property type."
+                    )
+                    ip_df = pd.DataFrame(ip_dist)
+                    st.bar_chart(ip_df, x="ip_type", y="count")
+                else:
+                    st.info("No IP distribution data available.")
+
+                # ── Risk breakdown (bonus) ─────────────────────────
+                risk_breakdown = data.get("risk_breakdown", {})
+                if risk_breakdown:
+                    st.markdown("#### Patent Risk Level Breakdown")
+                    st.caption(
+                        "Distribution of patent disclosures across "
+                        "risk levels."
+                    )
+                    risk_df = pd.DataFrame(
+                        [
+                            {"Risk Level": level, "Count": count}
+                            for level, count in risk_breakdown.items()
+                        ]
+                    )
+                    st.bar_chart(risk_df, x="Risk Level", y="Count")
+
+            elif resp.status_code == 404:
+                st.warning(f"No disclosures found for '{audit_org_input}'.")
+            else:
+                st.error(f"❌ API Error: {resp.text}")
+        except requests.ConnectionError:
+            st.error("🔌 Cannot connect to backend.")
+
 
 # ────────────────────────────────────────────────────────────────────
 # Footer

@@ -130,3 +130,67 @@ class DocumentExtraction(BaseModel):
     extracted_text_preview: str = Field(
         ..., description="First 500 characters of extracted text."
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Audit Report Models
+# ═══════════════════════════════════════════════════════════════════
+
+class AuditSearchScope(BaseModel):
+    """Search scope metadata for the audit report."""
+    databases: List[str]
+    classification: List[str]
+    total_disclosures_analysed: int
+
+
+class AuditSearchLogic(BaseModel):
+    """Search logic validation for the audit report."""
+    boolean_valid: bool
+    keyword_expansion: bool
+    filters: str
+
+
+class AuditMetrics(BaseModel):
+    """Quantitative metrics for the audit report."""
+    total_hits: int
+    threshold: str
+    final_docs: int
+    total_disclosures: int
+    patent_disclosures: int
+
+
+class AuditRiskThresholds(BaseModel):
+    """Risk threshold definitions."""
+    low: str
+    medium: str
+    high: str
+
+
+class AuditSystem(BaseModel):
+    """System configuration metadata."""
+    algorithm: str
+    feature_limit: int
+    risk_thresholds: AuditRiskThresholds
+
+
+class AuditIPDistribution(BaseModel):
+    """Single row in the IP type distribution."""
+    ip_type: str
+    count: int
+
+
+class AuditReport(BaseModel):
+    """
+    Full structured audit & compliance report.
+
+    Provides transparency into the search methodology, filtering
+    rigor, system configuration, and data distribution for an
+    organization's IP portfolio audit.
+    """
+    search_scope: AuditSearchScope
+    search_logic: AuditSearchLogic
+    metrics: AuditMetrics
+    system: AuditSystem
+    ip_distribution: List[AuditIPDistribution]
+    risk_breakdown: Dict[str, int]
+    similarity_scores: List[float]
