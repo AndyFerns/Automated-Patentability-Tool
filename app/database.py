@@ -30,18 +30,6 @@ from typing import Dict, List, Optional
 DB_PATH = Path(__file__).resolve().parent.parent / "ipr_audit.db"
 
 
-def _get_connection() -> sqlite3.Connection:
-    """
-    Open (or create) the SQLite database and return a connection.
-
-    Row factory is set to ``sqlite3.Row`` so that rows behave like
-    dictionaries.
-    """
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def init_db() -> None:
     """
     Create the ``disclosures`` table if it does not already exist.
@@ -49,24 +37,22 @@ def init_db() -> None:
     This is safe to call multiple times — the ``IF NOT EXISTS`` clause
     prevents duplicate-table errors.
     """
-    conn = _get_connection()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS disclosures (
-            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            title               TEXT    NOT NULL,
-            description         TEXT    NOT NULL,
-            ip_type             TEXT    NOT NULL,
-            organization        TEXT    NOT NULL,
-            inventor_name       TEXT,
-            similarity_score    REAL,
-            risk_level          TEXT,
-            most_similar_patent TEXT
+    with sqlite3.connect(str(DB_PATH)) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS disclosures (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                title               TEXT    NOT NULL,
+                description         TEXT    NOT NULL,
+                ip_type             TEXT    NOT NULL,
+                organization        TEXT    NOT NULL,
+                inventor_name       TEXT,
+                similarity_score    REAL,
+                risk_level          TEXT,
+                most_similar_patent TEXT
+            )
+            """
         )
-        """
-    )
-    conn.commit()
-    conn.close()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -89,29 +75,26 @@ def insert_disclosure(data: Dict) -> int:
     int
         The row ID of the newly inserted record.
     """
-    conn = _get_connection()
-    cursor = conn.execute(
-        """
-        INSERT INTO disclosures
-            (title, description, ip_type, organization, inventor_name,
-             similarity_score, risk_level, most_similar_patent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            data["title"],
-            data["description"],
-            data["ip_type"],
-            data["organization"],
-            data.get("inventor_name"),
-            data.get("similarity_score"),
-            data.get("risk_level"),
-            data.get("most_similar_patent"),
-        ),
-    )
-    conn.commit()
-    row_id = cursor.lastrowid
-    conn.close()
-    return row_id
+    with sqlite3.connect(str(DB_PATH)) as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO disclosures
+                (title, description, ip_type, organization, inventor_name,
+                 similarity_score, risk_level, most_similar_patent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                data["title"],
+                data["description"],
+                data["ip_type"],
+                data["organization"],
+                data.get("inventor_name"),
+                data.get("similarity_score"),
+                data.get("risk_level"),
+                data.get("most_similar_patent"),
+            ),
+        )
+        return cursor.lastrowid
 
 
 def get_disclosures_by_org(org_name: str) -> List[Dict]:
@@ -128,13 +111,13 @@ def get_disclosures_by_org(org_name: str) -> List[Dict]:
     list[dict]
         Each dict represents one disclosure row.
     """
-    conn = _get_connection()
-    rows = conn.execute(
-        "SELECT * FROM disclosures WHERE LOWER(organization) = LOWER(?)",
-        (org_name,),
-    ).fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    with sqlite3.connect(str(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM disclosures WHERE LOWER(organization) = LOWER(?)",
+            (org_name,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def get_all_organizations() -> List[str]:
@@ -146,9 +129,9 @@ def get_all_organizations() -> List[str]:
     list[str]
         Unique organization names across all disclosures.
     """
-    conn = _get_connection()
-    rows = conn.execute(
-        "SELECT DISTINCT organization FROM disclosures ORDER BY organization"
-    ).fetchall()
-    conn.close()
-    return [row["organization"] for row in rows]
+    with sqlite3.connect(str(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT DISTINCT organization FROM disclosures ORDER BY organization"
+        ).fetchall()
+        return [row["organization"] for row in rows]

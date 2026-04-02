@@ -17,31 +17,38 @@ Run with:
 
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from typing import List
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .credence_table import VALID_IP_TYPES
-from .database import (
+from app.credence_table import VALID_IP_TYPES
+from app.database import (
     get_all_organizations,
     get_disclosures_by_org,
     init_db,
     insert_disclosure,
 )
-from .extractor import process_document
-from .models import (
+from app.extractor import process_document
+from app.models import (
     DisclosureCreate,
     DisclosureResponse,
     DocumentExtraction,
     OrganizationScore,
 )
-from .patent_similarity import find_similar_patents
-from .score_engine import calculate_ipr_score, get_patent_risk_flags
+from app.patent_similarity import find_similar_patents
+from app.score_engine import calculate_ipr_score, get_patent_risk_flags
 
 # ────────────────────────────────────────────────────────────────────
 # App initialisation
 # ────────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure the database tables exist before serving requests."""
+    init_db()
+    yield
 
 app = FastAPI(
     title="IPR Audit & Patentability Scoring Tool",
@@ -51,6 +58,7 @@ app = FastAPI(
         "aggregation."
     ),
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Allow the Streamlit frontend (typically on port 8501) to call us.
@@ -61,12 +69,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    """Ensure the database tables exist before serving requests."""
-    init_db()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -134,20 +136,22 @@ async def upload_document(file: UploadFile = File(...)):
 
     # Write to a temp file so pdfplumber can read it.
     suffix = ".pdf"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        contents = await file.read()
-        tmp.write(contents)
-        tmp_path = tmp.name
-
+    tmp_path = None
     try:
-        inventor, preview = process_document(tmp_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp_path = tmp.name
+            contents = await file.read()
+            tmp.write(contents)
+
+        extraction = process_document(tmp_path)
     finally:
         # Clean up the temp file.
-        os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
     return DocumentExtraction(
-        inventor_name=inventor,
-        extracted_text_preview=preview,
+        inventor_name=extraction["inventor_name"],
+        extracted_text_preview=extraction["extracted_text_preview"],
     )
 
 

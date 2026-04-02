@@ -22,7 +22,7 @@ out without touching any other part of the codebase.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -41,21 +41,35 @@ def _load_mock_patents() -> List[Dict[str, str]]:
     Returns
     -------
     list[dict]
-        Each dict has ``"title"`` and ``"abstract"`` keys.
+        Each dict has ``"title"`` and ``"description"`` keys.
     """
-    with open(_MOCK_PATENTS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(_MOCK_PATENTS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, Exception):
+        # Gracefully handle missing or malformed mock data.
+        return []
 
 
-# Pre-load so we pay the I/O cost only once.
+# Module-level cache for patents and fitted vectorizer.
 _patents: List[Dict[str, str]] = []
+_vectorizer: Optional[TfidfVectorizer] = None
+_patent_tfidf_matrix: Optional[Any] = None
 
 
 def _ensure_patents_loaded() -> None:
-    """Lazily load patents on first use (avoids crash if file missing at import)."""
-    global _patents
+    """
+    Lazily load patents and pre-fit the TF-IDF vectorizer on first use.
+    
+    This optimization ensures we only pay the fit cost once.
+    """
+    global _patents, _vectorizer, _patent_tfidf_matrix
     if not _patents:
         _patents = _load_mock_patents()
+        if _patents:
+            _vectorizer = TfidfVectorizer(stop_words="english")
+            descriptions = [p["description"] for p in _patents]
+            _patent_tfidf_matrix = _vectorizer.fit_transform(descriptions)
 
 
 def classify_risk(similarity_pct: float) -> str:
@@ -107,23 +121,26 @@ def find_similar_patents(description: str) -> Dict[str, Any]:
     """
     _ensure_patents_loaded()
 
-    # Build the corpus: all patent abstracts + the candidate description.
-    corpus = [p["abstract"] for p in _patents] + [description]
+    # If no mock data is available, return a safe default.
+    if not _patents or not _vectorizer or _patent_tfidf_matrix is None:
+        return {
+            "similarity_score": 0.0,
+            "risk_level": "Low",
+            "most_similar_patent": "N/A",
+            "all_scores": [],
+        }
 
-    # Fit TF-IDF on the full corpus.
-    vectorizer = TfidfVectorizer(stop_words="english")
-    tfidf_matrix = vectorizer.fit_transform(corpus)
-
-    # The last vector is the candidate; compute similarity to all others.
-    candidate_vec = tfidf_matrix[-1]
-    patent_vecs = tfidf_matrix[:-1]
-    similarities = cosine_similarity(candidate_vec, patent_vecs).flatten()
+    # Transform the candidate description using the pre-fitted vectorizer.
+    candidate_vec = _vectorizer.transform([description])
+    
+    # Compute similarity against the pre-computed patent matrix.
+    similarities = cosine_similarity(candidate_vec, _patent_tfidf_matrix).flatten()
 
     # Identify the best match.
     best_idx = int(similarities.argmax())
     best_score = float(similarities[best_idx]) * 100  # Convert to %
 
-    # Build per-patent score list (useful for debugging / UI display).
+    # Build per-patent score list.
     all_scores = [
         {
             "title": _patents[i]["title"],

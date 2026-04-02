@@ -15,6 +15,7 @@ Run with:
     streamlit run ui/dashboard.py
 """
 
+import os
 import requests
 import streamlit as st
 
@@ -22,7 +23,7 @@ import streamlit as st
 # Configuration
 # ────────────────────────────────────────────────────────────────────
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 
 # The credence table IP types — must match the backend.
 IP_TYPES = [

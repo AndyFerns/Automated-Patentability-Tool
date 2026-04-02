@@ -81,6 +81,26 @@ docker run -p 8000:8000 -p 8501:8501 ipr-audit-tool
 
 ---
 
+## Testing & Security
+
+### 1. Run Unit Tests
+
+Use `pytest` to run the test suite:
+
+```bash
+python -m pytest tests/
+```
+
+### 2. Run Security Scan
+
+Use `bandit` to perform a security audit of the `app` directory:
+
+```bash
+bandit -r app/
+```
+
+---
+
 ## API Endpoints
 
 | Method | Path                              | Description                           |
