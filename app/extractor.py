@@ -107,17 +107,7 @@ def process_document(file_path: str) -> dict:
     inventor = extract_inventor_name(full_text)
     preview = full_text[:500] if full_text else ""
 
-    result = {
+    return {
         "inventor_name": inventor,
         "extracted_text_preview": preview,
     }
-
-    # Validate the dictionary keys
-    required_keys = ["inventor_name", "extracted_text_preview"]
-    for key in required_keys:
-        if key not in result:
-            # This should not happen with the hardcoded dict above, 
-            # but fulfills the "validate dictionary keys" requirement.
-            raise KeyError(f"Missing required key: {key}")
-
-    return result
