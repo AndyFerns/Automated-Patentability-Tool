@@ -59,9 +59,32 @@ def init_db() -> None:
 #  CRUD Operations
 # ═══════════════════════════════════════════════════════════════════
 
+def _canonical_organization(conn: sqlite3.Connection, org: str) -> str:
+    """
+    Return the canonical spelling for ``org``.
+
+    If any prior disclosure already uses a case-insensitive match, we
+    reuse that spelling so trivial variants ("Agnel", "agnel", "AGNEL")
+    all collapse to a single organization identity. Otherwise the
+    caller's (already-trimmed) value is returned unchanged and becomes
+    the canonical form for future inserts.
+    """
+    row = conn.execute(
+        "SELECT organization FROM disclosures "
+        "WHERE LOWER(organization) = LOWER(?) LIMIT 1",
+        (org,),
+    ).fetchone()
+    return row["organization"] if row else org
+
+
 def insert_disclosure(data: Dict) -> int:
     """
     Insert a new disclosure record and return the auto-generated ID.
+
+    The ``organization`` field is normalized to the canonical spelling
+    already present in the database (case-insensitive match); this
+    prevents case/whitespace variants from fragmenting an org's
+    portfolio across the /organizations listing and scoring endpoints.
 
     Parameters
     ----------
@@ -76,6 +99,13 @@ def insert_disclosure(data: Dict) -> int:
         The row ID of the newly inserted record.
     """
     with sqlite3.connect(str(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        org = (data["organization"] or "").strip()
+        org = _canonical_organization(conn, org)
+        # Reflect canonicalization back to the caller so the API
+        # response mirrors what actually went into the DB.
+        data["organization"] = org
+
         cursor = conn.execute(
             """
             INSERT INTO disclosures
@@ -87,7 +117,7 @@ def insert_disclosure(data: Dict) -> int:
                 data["title"],
                 data["description"],
                 data["ip_type"],
-                data["organization"],
+                org,
                 data.get("inventor_name"),
                 data.get("similarity_score"),
                 data.get("risk_level"),
@@ -131,7 +161,13 @@ def get_all_organizations() -> List[str]:
     """
     with sqlite3.connect(str(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
+        # Group by lowered form so any case variants that slipped in
+        # (e.g. via direct SQL) still collapse to one row in the UI;
+        # pick MIN(organization) as a stable spelling per group.
         rows = conn.execute(
-            "SELECT DISTINCT organization FROM disclosures ORDER BY organization"
+            "SELECT MIN(organization) AS organization "
+            "FROM disclosures "
+            "GROUP BY LOWER(organization) "
+            "ORDER BY LOWER(MIN(organization))"
         ).fetchall()
         return [row["organization"] for row in rows]
