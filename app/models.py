@@ -35,14 +35,15 @@ class DisclosureCreate(BaseModel):
         Name of the inventor.  Can be auto-extracted from an uploaded
         document if not provided.
     """
-    title: str = Field(..., example="Solar-Powered Water Purifier")
+    title: str = Field(..., min_length=1, max_length=500, example="Solar-Powered Water Purifier")
     description: str = Field(
-        ..., example="A novel device that uses concentrated solar energy ..."
+        ..., min_length=1, max_length=20000,
+        example="A novel device that uses concentrated solar energy ...",
     )
     ip_type: str = Field(..., example="Patent")
-    organization: str = Field(..., example="Agnel Institute")
+    organization: str = Field(..., min_length=1, max_length=200, example="Agnel Institute")
     inventor_name: Optional[str] = Field(
-        None, example="Dr. Priya Sharma"
+        None, max_length=200, example="Dr. Priya Sharma"
     )
 
     class Config:
