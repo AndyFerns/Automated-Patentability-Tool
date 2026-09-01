@@ -21,6 +21,7 @@ out without touching any other part of the codebase.
 """
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -55,21 +56,30 @@ def _load_mock_patents() -> List[Dict[str, str]]:
 _patents: List[Dict[str, str]] = []
 _vectorizer: Optional[TfidfVectorizer] = None
 _patent_tfidf_matrix: Optional[Any] = None
+_load_attempted: bool = False
+_load_lock = threading.Lock()
 
 
 def _ensure_patents_loaded() -> None:
     """
     Lazily load patents and pre-fit the TF-IDF vectorizer on first use.
-    
-    This optimization ensures we only pay the fit cost once.
+
+    Thread-safe (uvicorn may serve requests from multiple threads) and
+    does not retry after a failed load — a missing/broken mock file
+    should not trigger a disk read on every request.
     """
-    global _patents, _vectorizer, _patent_tfidf_matrix
-    if not _patents:
+    global _patents, _vectorizer, _patent_tfidf_matrix, _load_attempted
+    if _load_attempted:
+        return
+    with _load_lock:
+        if _load_attempted:
+            return
         _patents = _load_mock_patents()
         if _patents:
             _vectorizer = TfidfVectorizer(stop_words="english")
             descriptions = [p["description"] for p in _patents]
             _patent_tfidf_matrix = _vectorizer.fit_transform(descriptions)
+        _load_attempted = True
 
 
 def classify_risk(similarity_pct: float) -> str:
@@ -130,9 +140,30 @@ def find_similar_patents(description: str) -> Dict[str, Any]:
             "all_scores": [],
         }
 
+    # Guard against empty / whitespace-only input — the TF-IDF
+    # transform would produce a zero vector and argmax would silently
+    # pick patent[0] with score 0.0, which reads as a legitimate result.
+    if not description or not description.strip():
+        return {
+            "similarity_score": 0.0,
+            "risk_level": "Low",
+            "most_similar_patent": "N/A",
+            "all_scores": [],
+        }
+
     # Transform the candidate description using the pre-fitted vectorizer.
     candidate_vec = _vectorizer.transform([description])
-    
+
+    # If the description contains only out-of-vocabulary / stop words,
+    # the resulting vector is all zeros — treat as no meaningful match.
+    if candidate_vec.nnz == 0:
+        return {
+            "similarity_score": 0.0,
+            "risk_level": "Low",
+            "most_similar_patent": "N/A",
+            "all_scores": [],
+        }
+
     # Compute similarity against the pre-computed patent matrix.
     similarities = cosine_similarity(candidate_vec, _patent_tfidf_matrix).flatten()
 
