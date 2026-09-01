@@ -21,7 +21,7 @@ import tempfile
 from contextlib import asynccontextmanager
 from typing import List
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.credence_table import VALID_IP_TYPES
@@ -65,13 +65,30 @@ app = FastAPI(
 )
 
 # Allow the Streamlit frontend (typically on port 8501) to call us.
+# Note: wildcard origins are incompatible with allow_credentials=True
+# (browsers reject the combination), so credentials are disabled.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Max upload size for PDFs — 20 MB. Prevents unbounded memory reads.
+_MAX_PDF_BYTES = 20 * 1024 * 1024
+
+
+@app.get("/health")
+def health():
+    """Liveness probe used by the Streamlit sidebar."""
+    return {"status": "ok"}
+
+
+@app.get("/")
+def root():
+    """Root — lightweight alias of /health so bare pings succeed."""
+    return {"status": "ok", "service": "ipr-audit"}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -99,6 +116,20 @@ def create_disclosure(payload: DisclosureCreate):
     # Build the record dict.
     record = payload.model_dump()
 
+    # Normalize whitespace on free-text identifiers so trivially
+    # different inputs ("Agnel", " Agnel ", "Agnel\n") collapse
+    # to one organization / title.
+    for key in ("title", "description", "organization", "inventor_name"):
+        val = record.get(key)
+        if isinstance(val, str):
+            record[key] = val.strip()
+
+    if not record["title"] or not record["description"] or not record["organization"]:
+        raise HTTPException(
+            status_code=400,
+            detail="title, description, and organization must be non-empty.",
+        )
+
     # ── Patent-specific similarity analysis ─────────────────────
     if payload.ip_type == "Patent":
         sim_result = find_similar_patents(payload.description)
@@ -115,6 +146,25 @@ def create_disclosure(payload: DisclosureCreate):
     record["id"] = row_id
 
     return DisclosureResponse(**record)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  POST /similarity — Ad-hoc similarity check (does NOT persist)
+# ═══════════════════════════════════════════════════════════════════
+
+@app.post("/similarity")
+def check_similarity(description: str = Body(..., embed=True)):
+    """
+    Run a patent similarity check against the mock dataset without
+    creating any disclosure record. Used by the frontend's
+    "Patent Risk" tab for ad-hoc exploration.
+    """
+    if not description or not description.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Description must not be empty.",
+        )
+    return find_similar_patents(description)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -141,16 +191,34 @@ async def upload_document(file: UploadFile = File(...)):
     suffix = ".pdf"
     tmp_path = None
     try:
+        contents = await file.read()
+        if len(contents) > _MAX_PDF_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"PDF exceeds max upload size of "
+                       f"{_MAX_PDF_BYTES // (1024 * 1024)} MB.",
+            )
+        if not contents:
+            raise HTTPException(status_code=400, detail="Empty file.")
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp_path = tmp.name
-            contents = await file.read()
             tmp.write(contents)
 
-        extraction = process_document(tmp_path)
+        try:
+            extraction = process_document(tmp_path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=422,
+                detail=f"Failed to process PDF: {exc}",
+            ) from exc
     finally:
         # Clean up the temp file.
         if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     return DocumentExtraction(
         inventor_name=extraction["inventor_name"],
