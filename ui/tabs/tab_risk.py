@@ -28,15 +28,15 @@ def render() -> None:
         return
 
     if st.button("Analyse Similarity", type="primary"):
+        if not test_desc.strip():
+            st.error("Please enter a description.")
+            return
         try:
-            payload = {
-                "title":         "[Risk-Check] Ad-hoc similarity test",
-                "description":   test_desc,
-                "ip_type":       "Patent",
-                "organization":  "__risk_check__",
-                "inventor_name": None,
-            }
-            resp = requests.post(f"{API_BASE}/disclosure", json=payload, timeout=30)
+            resp = requests.post(
+                f"{API_BASE}/similarity",
+                json={"description": test_desc},
+                timeout=30,
+            )
             if resp.status_code == 200:
                 data = resp.json()
 
@@ -49,6 +49,10 @@ def render() -> None:
                 st.write("")
                 risk_banner(data["risk_level"])
             else:
-                st.error(f"❌ API Error: {resp.json().get('detail', resp.text)}")
+                try:
+                    detail = resp.json().get("detail", resp.text)
+                except ValueError:
+                    detail = resp.text
+                st.error(f"❌ API Error: {detail}")
         except requests.ConnectionError:
             st.error("🔌 Cannot connect to backend.")
