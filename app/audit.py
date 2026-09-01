@@ -71,11 +71,17 @@ def generate_audit_report(
         if d.get("similarity_score") is not None
     ]
 
-    # Simulate a realistic total_hits value: the mock dataset has
-    # ~20 patents; in a real system this would be the total search
-    # result count across the databases.  We derive a plausible
-    # number based on how many disclosures were analysed.
-    total_hits = max(total_disclosures * 1000 + 2021, 14021)
+    # Honest total_hits = every (patent disclosure × mock patent)
+    # comparison the similarity engine actually performed. In a real
+    # deployment this would come from the upstream search-database
+    # result count; keeping it derived from real work avoids shipping
+    # a fabricated number in a report titled "transparency".
+    try:
+        from app.patent_similarity import _patents as _mock_patents  # noqa: WPS437
+        mock_count = len(_mock_patents)
+    except Exception:  # noqa: BLE001
+        mock_count = 0
+    total_hits = len(patents_with_scores) * mock_count
 
     # final_docs = how many disclosures actually had patent similarity
     # analysis performed on them.
