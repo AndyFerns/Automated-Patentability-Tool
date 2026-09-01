@@ -33,8 +33,10 @@ def fetch_organizations() -> list[str]:
     try:
         resp = requests.get(f"{API_BASE}/organizations", timeout=10)
         if resp.status_code == 200:
-            return resp.json()
-    except requests.ConnectionError:
+            data = resp.json()
+            if isinstance(data, list):
+                return data
+    except (requests.RequestException, ValueError):
         pass
     return []
 
@@ -47,10 +49,10 @@ def backend_status() -> tuple[bool, str]:
     import time
     try:
         t0   = time.monotonic()
-        resp = requests.get(f"{API_BASE}/", timeout=4)
+        resp = requests.get(f"{API_BASE}/health", timeout=4)
         ms   = int((time.monotonic() - t0) * 1000)
-        if resp.status_code < 500:
+        if resp.status_code == 200:
             return True, f"{ms} ms"
-    except Exception:
+    except requests.RequestException:
         pass
     return False, "—"
