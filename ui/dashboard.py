@@ -35,6 +35,7 @@ import streamlit as st
 
 from styles.theme import inject_css
 from components.sidebar import render_sidebar
+from components.helpers import init_pipeline_state
 from tabs import tab_disclosure, tab_upload, tab_org_score, tab_risk, tab_audit
 
 # ────────────────────────────────────────────────────────────────────
@@ -54,6 +55,8 @@ st.set_page_config(
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = True
 
+init_pipeline_state()
+
 # ────────────────────────────────────────────────────────────────────
 # Theme injection  (before any visible content)
 # ────────────────────────────────────────────────────────────────────
@@ -71,32 +74,41 @@ render_sidebar()
 # ────────────────────────────────────────────────────────────────────
 
 st.markdown("## 🔬 IPR Audit & Patentability Scoring Tool")
-st.caption("Institutional IP auditing dashboard — powered by FastAPI")
+st.caption(
+    "Institutional IP auditing dashboard — the workflow reads left to right: "
+    "upload a document, register a disclosure, review the organization's score, "
+    "run risk checks, and generate an audit report."
+)
 st.divider()
 
 # ────────────────────────────────────────────────────────────────────
-# Tabs
+# Tabs — ordered to match the pipeline flow.
+#   1. Upload a PDF and extract inventor info
+#   2. Register a disclosure (auto-fills from step 1)
+#   3. See the organization's aggregated IPR score
+#   4. Run ad-hoc similarity / risk checks
+#   5. Generate a structured audit report
 # ────────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📝 Add Disclosure",
-    "📄 Upload Document",
-    "🏢 Organization Score",
-    "⚠️ Patent Risk",
-    "📋 Audit",
+tab_up, tab_disc, tab_score, tab_r, tab_a = st.tabs([
+    "1 · 📄 Upload Document",
+    "2 · 📝 Add Disclosure",
+    "3 · 🏢 Organization Score",
+    "4 · ⚠️ Patent Risk Check",
+    "5 · 📋 Audit Report",
 ])
 
-with tab1:
-    tab_disclosure.render()
-
-with tab2:
+with tab_up:
     tab_upload.render()
 
-with tab3:
+with tab_disc:
+    tab_disclosure.render()
+
+with tab_score:
     tab_org_score.render()
 
-with tab4:
+with tab_r:
     tab_risk.render()
 
-with tab5:
+with tab_a:
     tab_audit.render()
