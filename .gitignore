@@ -19,3 +19,5 @@ docs/maestro/
 tmp/
 plans/
 *orchestration*.md
+# MkDocs build output
+site/

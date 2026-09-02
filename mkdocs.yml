@@ -1,0 +1,86 @@
+# ─────────────────────────────────────────────────────────────────
+# MkDocs configuration — IPR Audit & Patentability Scoring Tool docs
+#
+# Build:   mkdocs build          (outputs static site to ./site)
+# Serve:   mkdocs serve          (live-reload dev server on :8000)
+# Deploy:  mkdocs gh-deploy       (publishes ./site to gh-pages branch)
+# ─────────────────────────────────────────────────────────────────
+
+site_name: IPR Audit & Patentability Scoring Tool
+site_description: >-
+  Documentation for the IPR Audit & Patentability Scoring Tool — institutional
+  IP auditing, TF-IDF patent similarity, and organization-level IPR scoring.
+site_author: AndyFerns
+
+# Repository (adds an edit/source link in the header).
+repo_name: AndyFerns/Automated-Patentability-Tool
+repo_url: https://github.com/AndyFerns/Automated-Patentability-Tool
+edit_uri: edit/master/docs/
+
+# Where the Markdown lives.
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant      # SPA-style instant loading
+    - navigation.tracking     # update URL with the active anchor
+    - navigation.top          # back-to-top button
+    - navigation.footer       # prev/next links in the footer
+    - content.code.copy       # copy button on code blocks
+    - toc.follow
+    - search.suggest
+    - search.highlight
+  # Light/dark toggle — mirrors the dashboard's own dual theme.
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+# Explicit navigation — order matters.
+nav:
+  - Home: README.md
+  - Getting Started: 01-getting-started.md
+  - Architecture: 02-architecture.md
+  - API Reference: 03-api-reference.md
+  - Scoring Methodology: 04-scoring-methodology.md
+  - User Guide: 05-user-guide.md
+
+markdown_extensions:
+  - admonition                # nice callout boxes
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences      # fenced code + diagrams
+  - pymdownx.inlinehilite
+  - pymdownx.details          # collapsible admonitions
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+
+# Footer / social.
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AndyFerns/Automated-Patentability-Tool
