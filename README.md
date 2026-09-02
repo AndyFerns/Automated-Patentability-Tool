@@ -9,27 +9,35 @@ scoring.
 ## Architecture
 
 ```
-ipr-prototype/
+Automated-Patentability-Tool/
 │
 ├── app/                        # FastAPI backend
-│   ├── main.py                 # API entry-point (4 endpoints)
+│   ├── main.py                 # API entry-point (9 endpoints)
 │   ├── models.py               # Pydantic request / response schemas
 │   ├── database.py             # SQLite persistence (raw SQL, no ORM)
 │   ├── credence_table.py       # IPR credence weights & tier logic
 │   ├── score_engine.py         # Pure-function scoring engine
 │   ├── patent_similarity.py    # TF-IDF + cosine similarity module
-│   └── extractor.py            # PDF text extraction & inventor regex
+│   ├── audit.py                # Deterministic audit-report builder
+│   └── extractor.py            # PDF text extraction & inventor parser
 │
 ├── data/
-│   └── mock_patents.json       # 10 mock patents for similarity testing
+│   └── mock_patents.json       # 10 reference patents for similarity testing
 │
-├── ui/
-│   └── dashboard.py            # Streamlit frontend (4 tabs)
+├── ui/                         # Streamlit frontend (5-tab pipeline)
+│   ├── dashboard.py            # entry point
+│   ├── components/ tabs/ styles/
 │
-├── requirements.txt
+├── docs/                       # MkDocs documentation source
+├── mkdocs.yml                  # MkDocs config
+├── requirements.txt            # runtime deps
+├── requirements-docs.txt       # docs toolchain (MkDocs + Material)
 ├── Dockerfile
 └── README.md                   # ← You are here
 ```
+
+📖 **Full documentation** lives in [`docs/`](docs/README.md) and builds into a
+browsable site with MkDocs — see [Documentation](#documentation) below.
 
 ---
 
@@ -43,7 +51,7 @@ ipr-prototype/
 ### 2. Install Dependencies
 
 ```bash
-cd ipr-prototype
+cd Automated-Patentability-Tool
 pip install -r requirements.txt
 ```
 
@@ -61,7 +69,7 @@ Interactive docs (Swagger UI) at **http://localhost:8000/docs**.
 Open a **second terminal**:
 
 ```bash
-cd ipr-prototype
+cd Automated-Patentability-Tool
 streamlit run ui/dashboard.py
 ```
 
@@ -103,13 +111,20 @@ bandit -r app/
 
 ## API Endpoints
 
-| Method | Path                              | Description                           |
-|--------|-----------------------------------|---------------------------------------|
-| POST   | `/disclosure`                     | Submit a new IP disclosure (JSON)     |
-| POST   | `/upload-document`                | Upload PDF, extract inventor name     |
-| GET    | `/organization/{org_name}/score`  | Aggregated IPR score card             |
-| GET    | `/organization/{org_name}/details`| Full disclosure list + score          |
-| GET    | `/organizations`                  | List all known organizations          |
+| Method | Path                              | Description                                   |
+|--------|-----------------------------------|-----------------------------------------------|
+| GET    | `/`                               | Root health alias                             |
+| GET    | `/health`                         | Liveness probe                                |
+| POST   | `/disclosure`                     | Submit a new IP disclosure (+ similarity for patents) |
+| POST   | `/similarity`                     | Ad-hoc similarity check (does **not** persist)|
+| POST   | `/upload-document`                | Upload PDF, extract inventor name             |
+| GET    | `/organization/{org_name}/score`  | Aggregated IPR score card                     |
+| GET    | `/organization/{org_name}/details`| Full disclosure list + score                  |
+| GET    | `/organizations`                  | List all known organizations                  |
+| GET    | `/audit/{org_name}`               | Structured audit & compliance report          |
+
+Full request/response contracts are in the
+[API Reference](docs/03-api-reference.md).
 
 ### Example: POST /disclosure
 
@@ -171,6 +186,52 @@ bandit -r app/
 | PDF       | pdfplumber         |
 | Frontend  | Streamlit          |
 | Schemas   | Pydantic v2        |
+
+---
+
+## Documentation
+
+Full docs live in [`docs/`](docs/README.md) and are built with **MkDocs +
+Material**. The Markdown is readable as-is on GitHub, or you can serve/build the
+polished site.
+
+### Install the docs toolchain
+
+```bash
+pip install -r requirements-docs.txt
+```
+
+### Live-preview while editing
+
+```bash
+mkdocs serve
+```
+
+Opens a live-reloading dev server at **http://localhost:8000** (stop your
+backend first, or it'll clash on that port).
+
+### Build the static site
+
+```bash
+mkdocs build
+```
+
+Outputs a self-contained site to `./site/` (git-ignored).
+
+### Deploy to GitHub Pages
+
+```bash
+mkdocs gh-deploy
+```
+
+Builds and pushes to the `gh-pages` branch in one command — your docs go live at
+`https://andyferns.github.io/Automated-Patentability-Tool/`.
+
+**Doc map:** [Getting Started](docs/01-getting-started.md) ·
+[Architecture](docs/02-architecture.md) ·
+[API Reference](docs/03-api-reference.md) ·
+[Scoring Methodology](docs/04-scoring-methodology.md) ·
+[User Guide](docs/05-user-guide.md)
 
 ---
 
