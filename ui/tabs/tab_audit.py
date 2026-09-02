@@ -1,48 +1,65 @@
 """
 ui/tabs/tab_audit.py
 ────────────────────
-Tab 5 — Generate structured audit & compliance reports.
+Tab 5 — Structured audit & compliance report.
 """
 
 import pandas as pd
 import requests
 import streamlit as st
 
-from components.helpers import fetch_organizations
+from components.helpers import api_error, empty_state, fetch_organizations
 from config import API_BASE
 
 
 def render() -> None:
-    st.subheader("Audit & Compliance Report")
+    st.subheader("Step 5 · Audit & Compliance Report")
     st.caption(
-        "Generate a structured audit report for an organization's IP portfolio — "
-        "including search methodology, filtering rigor, and system configuration."
+        "Generate a structured audit for an organization's IP portfolio — "
+        "search methodology, filtering rigor, system configuration, and "
+        "distribution charts."
     )
 
-    audit_orgs      = fetch_organizations()
-    audit_org_input = st.text_input(
-        "Organization Name",
-        placeholder="Type an organization name",
-        key="audit_org_input",
-    )
-    if audit_orgs:
-        st.caption(f"Known organizations: {', '.join(audit_orgs)}")
+    orgs = fetch_organizations()
+    prefill = st.session_state.get("prefill_org") or st.session_state.get("last_disclosure_org")
 
-    if not audit_org_input:
+    if not orgs:
+        empty_state(
+            "📋",
+            "Nothing to audit yet",
+            "The audit report is built from stored disclosures — you'll need at least one first.",
+            hint="→ Return to step 2 to register a disclosure.",
+        )
         return
 
+    default_idx = orgs.index(prefill) if prefill in orgs else 0
+    audit_org_input = st.selectbox(
+        "Organization",
+        options=orgs,
+        index=default_idx,
+        key="audit_org_pick",
+    )
+
     if st.button("Generate Audit Report", type="primary"):
-        try:
-            resp = requests.get(f"{API_BASE}/audit/{audit_org_input}", timeout=15)
-            if resp.status_code == 200:
-                data = resp.json()
-                _render_report(data)
-            elif resp.status_code == 404:
-                st.warning(f"No disclosures found for '{audit_org_input}'.")
-            else:
-                st.error(f"❌ API Error: {resp.text}")
-        except requests.ConnectionError:
-            st.error("🔌 Cannot connect to backend.")
+        with st.spinner(f"Compiling audit report for {audit_org_input}…"):
+            try:
+                resp = requests.get(
+                    f"{API_BASE}/audit/{audit_org_input}",
+                    timeout=15,
+                )
+            except requests.ConnectionError:
+                st.error("🔌 Cannot connect to backend.")
+                return
+
+        if resp.status_code == 404:
+            st.warning(f"No disclosures found for '{audit_org_input}'.")
+            return
+        if resp.status_code != 200:
+            st.error(f"❌ API Error: {api_error(resp)}")
+            return
+
+        st.session_state["prefill_org"] = audit_org_input
+        _render_report(resp.json())
 
 
 # ── Private helpers ────────────────────────────────────────────────
@@ -87,9 +104,10 @@ def _section_search_logic(logic: dict) -> None:
 def _section_metrics(metrics: dict) -> None:
     st.markdown("#### 📊 Quantitative Metrics")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Total Search Hits",  f"{metrics['total_hits']:,}")
+    c1.metric("Comparisons Performed", f"{metrics['total_hits']:,}",
+              help="Number of (patent disclosure × reference patent) similarity comparisons run.")
     c2.metric("Risk Threshold",     metrics["threshold"])
-    c3.metric("Final Documents",    metrics["final_docs"])
+    c3.metric("Scored Documents",   metrics["final_docs"])
 
     c4, c5 = st.columns(2)
     c4.metric("Total Disclosures",  metrics["total_disclosures"])
@@ -116,9 +134,9 @@ def _section_charts(data: dict) -> None:
 
     # Result Funnel
     st.markdown("**Result Funnel**")
-    st.caption("How the system narrows from total search hits to final scored documents.")
+    st.caption("How the system narrows from total comparisons to final scored documents.")
     funnel_df = pd.DataFrame({
-        "Stage": ["Total Hits", "Total Disclosures", "Patent Disclosures", "Final Docs (Scored)"],
+        "Stage": ["Comparisons", "Total Disclosures", "Patent Disclosures", "Scored Docs"],
         "Count": [
             metrics["total_hits"],
             metrics["total_disclosures"],
@@ -132,7 +150,7 @@ def _section_charts(data: dict) -> None:
     similarity_scores = data.get("similarity_scores", [])
     if similarity_scores:
         st.markdown("**Similarity Score Distribution vs Threshold**")
-        st.caption("Each bar is the similarity score of a patent disclosure; reference line marks the 40% risk threshold.")
+        st.caption("Each bar is one patent disclosure's similarity score; reference line marks the 40% risk threshold.")
         sim_labels = [f"Patent {i + 1}" for i in range(len(similarity_scores))]
         sim_df = pd.DataFrame({
             "Patent":          sim_labels,
