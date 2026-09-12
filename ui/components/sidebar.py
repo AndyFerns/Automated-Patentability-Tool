@@ -20,39 +20,60 @@ from config import API_BASE, APP_VERSION, IP_TYPES
 def _pipeline_progress() -> None:
     """
     Small stepper that lights up each pipeline stage as the user
-    completes it. Purely informational — Streamlit can't switch
-    tabs programmatically, but this gives the user a mental model
-    of where they are in the workflow.
+    completes it. Purely informational.
     """
+
     steps = [
-        ("Upload",     bool(st.session_state.get("extracted_preview"))),
-        ("Disclose",   bool(st.session_state.get("last_disclosure_id"))),
-        ("Score",      bool(st.session_state.get("last_disclosure_org"))),
-        ("Risk",       bool(st.session_state.get("last_disclosure_risk"))),
-        ("Audit",      bool(st.session_state.get("last_disclosure_org"))),
+        ("Upload", bool(st.session_state.get("extracted_preview"))),
+        ("Disclose", bool(st.session_state.get("last_disclosure_id"))),
+        ("Score", bool(st.session_state.get("last_disclosure_org"))),
+        ("Risk", bool(st.session_state.get("last_disclosure_risk"))),
+        ("Audit", bool(st.session_state.get("last_disclosure_org"))),
     ]
+
     dots = []
+
     for i, (label, done) in enumerate(steps, start=1):
         color = "#4caf50" if done else "rgba(128,128,128,0.35)"
         text_color = "inherit" if done else "rgba(128,128,128,0.75)"
+
         dots.append(
             f"""
-            <div style="display:flex; align-items:center; gap:8px; margin:4px 0;">
+            <div style="
+                display:flex;
+                align-items:center;
+                gap:8px;
+                margin:4px 0;
+            ">
                 <div style="
-                    width:18px; height:18px; border-radius:50%;
-                    background:{color}; color:white; font-size:0.7rem;
-                    display:flex; align-items:center; justify-content:center;
+                    width:18px;
+                    height:18px;
+                    border-radius:50%;
+                    background:{color};
+                    color:white;
+                    font-size:0.7rem;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
                     font-family:'Space Mono', monospace;
                 ">{i}</div>
-                <div style="font-size:0.82rem; color:{text_color};">
+
+                <div style="
+                    font-size:0.82rem;
+                    color:{text_color};
+                ">
                     {html.escape(label)}
                 </div>
             </div>
             """
         )
-    st.markdown(
-        "<div style='margin: 4px 0 8px 0;'>" + "".join(dots) + "</div>",
-        unsafe_allow_html=True,
+
+    st.html(
+        f"""
+        <div style="margin:4px 0 8px 0;">
+            {"".join(dots)}
+        </div>
+        """
     )
 
 
@@ -107,7 +128,7 @@ def render_sidebar() -> None:
         st.divider()
 
         # ── Pipeline progress ─────────────────────────────────
-        st.markdown("**Pipeline Progress**")
+        st.markdown("**Pipeline Progress**", unsafe_allow_html=True,)
         _pipeline_progress()
 
         if any(
